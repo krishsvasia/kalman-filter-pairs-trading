@@ -34,7 +34,7 @@ def ingest_market_data(file_path, ticker_x = "ABT", ticker_y = "ABBV"):
     return pair_df.reset_index(drop=True)
 
 class KalmanFilter:
-    def __init__(self, delta = 1e - 5, R = 1e - 3):
+    def __init__(self, delta = 1e-6, R = 0.6):
 
         # A vector is created to hold the state.
         # self.state is a 2D vector where: [slope, intercept]
@@ -87,18 +87,25 @@ if __name__ == "__main__":
     # Make sure 'sp500_stocks.csv' is in your project folder!
     data = ingest_market_data('sp500_stocks.csv')
     
-    kf = KalmanFilter
+    # Instantiate the Kalman Filter.
+    # FIXED: Added parentheses () to actually create the object instance.
+    kf = KalmanFilter() 
+
+    # We will keep track of the spread history to compute z-scores.
     spread_history = []
     current_position = 0
-    signals = []
+    # We will store the generated z-scores here because we may want to analyze them later.
+    z_scores = []
+
+    # Initialize a list to keep track of profit and loss (PnL) over time.
+    pnl = [0]
 
     for i in range(len(data)):
         x_price = data["x_price"][i]
         y_price = data["y_price"][i]
 
         state = kf.update(x_price, y_price)
-        slope = state[0]
-        intercept = state[1]
+        slope, intercept = state[0], state[1]
     
         # We now calculate where we expect the y_price to be, given the x_price and the Kalman Filter's state.
         y_prediction = (slope * x_price) + intercept
@@ -111,31 +118,65 @@ if __name__ == "__main__":
         if len(spread_history) >= window:
             # Look at only the last 30 entries
             recent_window = spread_history[-window:]
-
-            mean_spread = np.mean(recent_window)
-            std_spread = np.std(recent_window)
-
-            z_score = (current_spread - mean_spread) / std_spread
+            z_score = (current_spread - np.mean(recent_window)) / np.std(recent_window)
         else:
             # We don't have enough data to calculate a meaningful z-score we can act upon yet.
             z_score = 0
+        z_scores.append(z_score)
+
+        if i > 0:
+            # Change in the spread value
+            spread_change = spread_history[i] - spread_history[i-1]
+            # Profit = direction of our bet * change in spread
+            daily_profit = current_position * spread_change
+            pnl.append(pnl[-1] + daily_profit)
+
 
         if z_score > 2:
             # This is when y is significantly overpriced compared to x.
             # We would short y and buy x.
-            signal = -1
+            current_position = -1
         elif z_score < -2:
             # This is when y is significantly underpriced compared to x.
             # We would buy y and short x.
-            signal = 1
+            current_position = 1
         elif abs(z_score) < 0.5:
             # This is when the spread has returned to normal.
             # Exit current position.
-            signal = 0
-        else:
-            # If none of the above conditions are met, we hold our current position.
-            signal = current_position
+            current_position = 0
 
-        signals.append(signal)
-        current_position = signal
-        
+    fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(12, 10), sharex=True)
+
+    # Graph 1: The Z-Score
+    ax1.plot(data['Date'], z_scores, color='blue', lw=1, label='Z-Score')
+    ax1.axhline(2, color='red', linestyle='--', alpha=0.5)
+    ax1.axhline(-2, color='red', linestyle='--', alpha=0.5)
+    ax1.axhline(0, color='black', lw=1)
+    ax1.set_title('Strategy Signals (Z-Score)')
+    ax1.legend()
+
+    # Graph 2: Cumulative PnL
+    ax2.plot(data['Date'], pnl, color='green', lw=2, label='Cumulative Profit')
+    ax2.set_title('Total Strategy Returns')
+    ax2.set_ylabel('Profit ($)')
+    ax2.legend()
+
+    plt.tight_layout()
+    plt.show()
+
+    print(f"Final Profit: ${pnl[-1]:.2f}")
+
+    total_return = pnl[-1] 
+    # Assuming a starting capital of $100 for a percentage estimate.
+    percent_return = (total_return / 100) * 100 
+
+    # Calculate Sharpe Ratio.
+    daily_returns = np.diff(pnl)
+    sharpe = np.mean(daily_returns) / np.std(daily_returns) * np.sqrt(252)
+
+    # Count how many times you actually entered a trade.
+    trade_count = np.sum(np.diff(np.array(z_scores) > 2).astype(int) + np.diff(np.array(z_scores) < -2).astype(int))
+
+    print(f"Total Profit:        ${total_return:.2f}")
+    print(f"Annualized Sharpe:   {sharpe:.2f}")
+    print(f"Approx. Trade Count: {trade_count}")
