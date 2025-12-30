@@ -6,37 +6,31 @@ import matplotlib.pyplot as plt
 def ingest_market_data(file_path, ticker_x = "ABT", ticker_y = "ABBV"):
 
     # Load S&P 500 stocks data.
-    # A dataframe is a 2D array with improved functionality.
     df = pd.read_csv(file_path)
 
-    # Converts the 'Date' column from Strings to DateTime objects.
-    # This allows for the contents of the 'Date' column to be used in analysis.
+    # Converts the 'Date' column from Strings to DateTime objects, allowing for it's contents to be used in analysis.
     df['Date'] = pd.to_datetime(df['Date'])
 
-    # Filters out data for only two columns: 'Date' and 'Close' for ticker_x and ticker_y.
-    # This is done through the use of a mask.
+    # Uses a mask to filter out data for only two columns: 'Date' and 'Close' for ticker_x and ticker_y.
     x_data = df[df['Symbol'] == ticker_x][['Date', 'Close']].rename(columns={'Close': 'x_price'})
     y_data = df[df['Symbol'] == ticker_y][['Date', 'Close']].rename(columns={'Close': 'y_price'})
 
-    # We use an Inner Join to combine the two dataframes on the 'Date' column.
-    # We drop rows where ticker_x has a price on days where ticker_y does not have a price, and vice versa.
+    # We use an Inner Join to combine the two dataframes on the 'Date' column, dropping any dates that don't exist in both dataframes.
     pair_df = pd.merge(x_data, y_data, on='Date', how='inner')
 
     # This removes the rows with any NaN values.
     pair_df.dropna(inplace=True)
 
-    # Sort the rows by Date.
+    # Sorts the rows by Date.
     # Inplace modifies the existing dataframe instead of creating a new one.
     pair_df.sort_values(by='Date', inplace=True)
 
-    # Due to some rows being dropped, the index may be out of order.
-    # Reset the index to be in order.
+    # Resets the index to be in order, as they may currently be out of order after the filtering of rows.
     return pair_df.reset_index(drop=True)
 
 class KalmanFilter:
     def __init__(self, delta = 1e-6, R = 0.6):
 
-        # A vector is created to hold the state.
         # self.state is a 2D vector where: [slope, intercept]
         self.state = np.zeros(2)
         # The initial slope is set to 1.0, assuming the stocks move 1-to-1.
@@ -52,13 +46,11 @@ class KalmanFilter:
         # P and Q are 2x2 matrices, while R is a scalar.
         # P and Q represent two dimensions (slope and intercept), while R represents one dimension (the price).
 
-        # This is the Kalman Gain, which will be computed during the update step.
-        # It is not required during initialization, so we set it to None, and I am including it here for clarity.
+        # The Kalman Gain is not currently required, and is included here for clarity, but will be computed during the update step.
         self.K = None
 
     def update(self, x_price, y_price):
-        # Translates the state we created earlier into a measurement prediction.
-        # H can be thought of as a prediction engine, mapping a prediction when input with x_price.
+        # H predicts the value of y_price given the current state and x_price.
         H = np.array([[x_price, 1.0]])
 
         # We add the relationship noise to the state covariance.
@@ -77,18 +69,16 @@ class KalmanFilter:
         self.state = self.state + (self.K.flatten() * err)
 
         # While Q increases the uncertainty, P, the Klarman Gain reduces it.
-        # This is where the algorithm becomes more confident.
+        # This is where the algorithm becomes more confident in its estimates.
         self.P = self.P - (self.K @ H @ self.P)
 
         return self.state
 
 # Execution block
 if __name__ == "__main__":
-    # Make sure 'sp500_stocks.csv' is in your project folder!
     data = ingest_market_data('sp500_stocks.csv')
     
     # Instantiate the Kalman Filter.
-    # FIXED: Added parentheses () to actually create the object instance.
     kf = KalmanFilter() 
 
     # We will keep track of the spread history to compute z-scores.
@@ -116,18 +106,18 @@ if __name__ == "__main__":
         # The z-score tells us how many standard deviations away the current spread is from the mean, indicating if it's unusually high or low.
         window = 30 
         if len(spread_history) >= window:
-            # Look at only the last 30 entries
+            # Looks at only the last 30 entries.
             recent_window = spread_history[-window:]
             z_score = (current_spread - np.mean(recent_window)) / np.std(recent_window)
         else:
-            # We don't have enough data to calculate a meaningful z-score we can act upon yet.
+            # With less than 30 entries, we don't have enough data to calculate a meaningful z-score we can act upon yet.
             z_score = 0
         z_scores.append(z_score)
 
         if i > 0:
             # Change in the spread value
             spread_change = spread_history[i] - spread_history[i-1]
-            # Profit = direction of our bet * change in spread
+            # Profit = direction of our expectation * change in spread
             daily_profit = current_position * spread_change
             pnl.append(pnl[-1] + daily_profit)
 
@@ -174,9 +164,10 @@ if __name__ == "__main__":
     daily_returns = np.diff(pnl)
     sharpe = np.mean(daily_returns) / np.std(daily_returns) * np.sqrt(252)
 
-    # Count how many times you actually entered a trade.
+    # Count how many times the algorithm actually entered a trade.
     trade_count = np.sum(np.diff(np.array(z_scores) > 2).astype(int) + np.diff(np.array(z_scores) < -2).astype(int))
 
+    # Print summary statistics.
     print(f"Total Profit:        ${total_return:.2f}")
     print(f"Annualized Sharpe:   {sharpe:.2f}")
     print(f"Approx. Trade Count: {trade_count}")
