@@ -48,7 +48,15 @@ Using these we calculate a new error, which will be fed into the next iteration.
 The Kalman Gain is a "trust" factor.
 * It optimally weighs the noise in our estimate against the noise in our data.
 * Formula: K = $\frac{E_{EST}}{E_{EST} + E_{MEA}}$  
-$0\ge K \ge 1$
+$0\ge K \ge 1$  
+As the Kalman Gain approaches 1: measurements are more accurate, and estimates are unstable.  
+As the Kalman Gain approaches 0: measurements are inaccurate, and estimates are stable.  
+  
+As we iterate through the Kalman Filter, we expect the Kalman Gain to decrease as we approach the true value.
+
+#### How is the Kalman Gain used?
+$EST_t = EST_{t-1} + K(MEA - EST_{t-1})$   
+The current estimate is equal to the previous estimate plus the Kalman Gain multiplied by the difference between the new measurement and the previous estimate.
 
 ## 02/01/2026
 
