@@ -18,7 +18,7 @@ There are three main calculations:
 
 These calculations must be calculated iteratively in order for the Filter to improve its estimate and to approach the true value we are measuring.
 
-### Kalman Gain
+### THe Kalman Gain $K$
 The Kalman Gain is a "trust" factor, and places a relative importance on the estimate compared to the error in the data, placing more importance on the value with the lower error.
 
 Formula:
@@ -43,3 +43,37 @@ Formula:
 * $^EEST_t = \frac{(E_{MEA})(^EEST_{t-1})}{(E_{MEA}) + (^EEST_{t-1})} \Rightarrow \> ^EEST_t = (1-K)(^EEST_{t-1})$
 
 ## The Multi-dimension Model
+This is used when we want to track multiple variables, and places the Kalman Filter into a matrix format.  
+A reminder of what the Kalman Filter does: takes an input from an observation. Takes a state of a particular situation. We receive information periodically. We want to keep updating where we think the value of the variable is at. We constantly receive measurements, and we make predications, and the Kalman Filter tells us which should hold greater value when calculating our estimate for each iteration.
+
+### The process
+1. Initial State - Contains a state matrix and a process covariance matrix, $X_0$ and $P_0$.
+    * The state matrix $X_0$ typically contains the position and velocity of the value we are tracking in 1, 2, or 3 dimensions.
+    * The process covariance matrix $P_0$ represents the error in the estimate / process.
+1. As we iterate, the current state becomes the previous state, holding $X_{k-1}$ and $P_{k-1}$.
+1. With a previous state, we are now able to calculate the prediction for the new state, $X_{k_p}$ and $P_{k_p}$.
+    * $A$ and $B$ are adaptation matrices, and their purpose is to convert values into the correct format so that they can be used in the equations.
+    * $X_{k_p} = AX_{k-1} + Bu_k + u_k$
+        * This prediction makes use of the control variable matrix $u$, and we add on our prediction for how the control variables will affect the state matrix.
+        * The predicted state noise matrix $w$ is also used to calculate the noise in that prediction.
+    * $P_{k_p} = AP_{k-1}A^T + Q_k$
+        * The process noise covariance matrix $Q$ accounts for any potential noise and needs to be accounted for in our prediction for the new process covariance matrix $P$.
+1. After our prediction, we update it with the new measurement and the Kalman Gain to give us the updated state.
+    * $C$ is also an adaptation matrix, like $A$ and $B$, and converts values into the correct format so that they can be used in the equations.
+    * $Y_k = CX_{k_m} + Z_k$
+        * The measurement of the state $Y$.
+        * As there may also be noise in the measurement, we need to add the measurement noise $Z$.
+    * $K = \frac{P_{k_p}H}{HP_{k_p}H^T + R}$
+        * The Kalman Gain decides how much we trust our estimate, and therefore what fraction of it we will use in our measurement and our prediction of the new state.
+    * $X_k = X_{k_p} + K[Y-HX_{k_p}]$
+1. Update the process covariance matrix $P$.
+    * $P_k = (I - KH)P_{k_p}$
+        * The matrix identity $I$.
+    * $P$ is the error in the process of the Kalman Filter.
+1. Output of the updated state.
+    * The updated state matrix $X_k$
+    * The updated process covariance matrix $P_k$
+1. The process is then repeated.
+
+### The State Matrix $X$
+$X_k = AX_{k-1} + Bu_k + w_k$
