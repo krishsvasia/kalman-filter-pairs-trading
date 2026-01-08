@@ -53,17 +53,17 @@ A reminder of what the Kalman Filter does: takes an input from an observation. T
 1. As we iterate, the current state becomes the previous state, holding $X_{k-1}$ and $P_{k-1}$.
 1. With a previous state, we are now able to calculate the prediction for the new state, $X_{k_p}$ and $P_{k_p}$.
     * $A$ and $B$ are adaptation matrices, and their purpose is to convert values into the correct format so that they can be used in the equations.
-    * $X_{k_p} = AX_{k-1} + Bu_k + u_k$
+    * $X_{k_p} = AX_{k-1} + Bu_k + w_k$
         * This prediction makes use of the control variable matrix $u$, and we add on our prediction for how the control variables will affect the state matrix.
         * The predicted state noise matrix $w$ is also used to calculate the noise in that prediction.
     * $P_{k_p} = AP_{k-1}A^T + Q_k$
         * The process noise covariance matrix $Q$ accounts for any potential noise and needs to be accounted for in our prediction for the new process covariance matrix $P$.
 1. After our prediction, we update it with the new measurement and the Kalman Gain to give us the updated state.
-    * $C$ is also an adaptation matrix, like $A$ and $B$, and converts values into the correct format so that they can be used in the equations.
-    * $Y_k = CX_{k_m} + Z_k$
+    * $H$ is also an adaptation matrix, like $A$ and $B$, and converts values into the correct format so that they can be used in the equations.
+    * $Y_k = H_{k_m} + Z_k$
         * The measurement of the state $Y$.
         * As there may also be noise in the measurement, we need to add the measurement noise $Z$.
-    * $K = \frac{P_{k_p}H}{HP_{k_p}H^T + R}$
+    * $K = \frac{P_{k_p}H^T}{HP_{k_p}H^T + R}$
         * The Kalman Gain decides how much we trust our estimate, and therefore what fraction of it we will use in our measurement and our prediction of the new state.
     * $X_k = X_{k_p} + K[Y-HX_{k_p}]$
 1. Update the process covariance matrix $P$.
@@ -77,19 +77,42 @@ A reminder of what the Kalman Filter does: takes an input from an observation. T
 
 ### The State Matrix $X$
 * The new state $X_k = AX_{k-1} + Bu_k + w_k$ consists of:
-    * The previous state $X_{k-1}$
-    * The control variable matrix $u_k$
-    * The noise in the process $w_k$
+    * $X_{k-1}$ - previous state.
+    * $u_k$ - control variable matrix.
+    * $w_k$ - noise in the process.
+    * $\Delta t$ - time for one cycle.
 
-#### 1 Dimension
-* In one dimension, the state matrix will consist of a position, and a velocity.
+When calculating the movement of an object, we can use Newton's equations of motion.
 
-For position and velocity in the x direction:
+#### Calculating $A X_{k-1}$
+We multiply the previous state matrix by an adaptation matrix to put it into the correct format.
+
+##### 1 Dimension
+In one dimension, the state matrix will consist of a position, and a velocity.
+
+* For position and velocity in the x direction:
 $X = \begin{bmatrix} x \newline \dot{x} \end{bmatrix}$  
-For position and velocity in the y direction:
+* For position and velocity in the y direction:
 $X = \begin{bmatrix} y \newline \dot{y} \end{bmatrix}$
 
-#### 2 Dimensions
-* In two dimensions, the state matrix will consist of a position and velocity in the x direction, and a position and velocity in the y direction.
+The adaptation matrix $A$ in one dimension.
+
+$A = \begin{bmatrix} 1 \>\> \Delta t \newline 0 \>\>\>\> 1 \end{bmatrix}$
+
+Multiplying $A$ by $X$: $AX = \begin{bmatrix} 1 \>\> \Delta t \newline 0 \>\>\>\> 1 \end{bmatrix}\begin{bmatrix} x \newline \dot{x} \end{bmatrix} = \begin{bmatrix} x + \Delta t \dot{x} \newline 0 + \dot{x} \end{bmatrix}$
+* In the first row, we have the new position. This is calculated by adding the previous position to the distance moved (displacement = velocity * time).
+* In the second row, we have the velocity.
+
+##### 2 Dimensions
+In two dimensions, the state matrix will consist of a position and velocity in the x direction, and a position and velocity in the y direction.
 
 $X = \begin{bmatrix} x \newline y \newline \dot{x} \newline \dot{y} \end{bmatrix}$
+
+#### Calculating $B u_k$
+We multiply the control variable matrix by the adaptation matrix to get it into the correct format. $u_k$ represents the control variable, such as acceleration.
+
+The $B$ matrix is derived from another equation of motion, $s = ut + \frac{1}{2} at^2$
+
+$B = \begin{bmatrix} \frac{1}{2} \Delta t^2 \newline \Delta t \end{bmatrix}$
+
+If there are no control variables active, $u_k = [0]$, or if it is acceleration, then $u_k = [a]$
