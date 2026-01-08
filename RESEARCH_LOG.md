@@ -18,7 +18,7 @@ There are three main calculations:
 
 These calculations must be calculated iteratively in order for the Filter to improve its estimate and to approach the true value we are measuring.
 
-### THe Kalman Gain $K$
+### The Kalman Gain $K$
 The Kalman Gain is a "trust" factor, and places a relative importance on the estimate compared to the error in the data, placing more importance on the value with the lower error.
 
 Formula:
@@ -76,4 +76,20 @@ A reminder of what the Kalman Filter does: takes an input from an observation. T
 1. The process is then repeated.
 
 ### The State Matrix $X$
-$X_k = AX_{k-1} + Bu_k + w_k$
+* The new state $X_k = AX_{k-1} + Bu_k + w_k$ consists of:
+    * The previous state $X_{k-1}$
+    * The control variable matrix $u_k$
+    * The noise in the process $w_k$
+
+#### 1 Dimension
+* In one dimension, the state matrix will consist of a position, and a velocity.
+
+For position and velocity in the x direction:
+$X = \begin{bmatrix} x \newline \dot{x} \end{bmatrix}$  
+For position and velocity in the y direction:
+$X = \begin{bmatrix} y \newline \dot{y} \end{bmatrix}$
+
+#### 2 Dimensions
+* In two dimensions, the state matrix will consist of a position and velocity in the x direction, and a position and velocity in the y direction.
+
+$X = \begin{bmatrix} x \newline y \newline \dot{x} \newline \dot{y} \end{bmatrix}$
