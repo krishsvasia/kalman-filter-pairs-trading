@@ -1,10 +1,6 @@
-# Autonomous Adaptive Kalman Agent
-This research log tracks both the evolution of the Kalman Agent, and my learning process as I work through its development. Each entry represents a new milestone reached and its practical application to the agent.  
+# Adaptive Kalman Filter
+This file tracks both the evolution of the Kalman Filter, and  the logic behind each new feature as I work through its development
   
-For the majority of this project, I will be learning from Michel Van Biezen's Kalman Filter playlist on Youtube.  
-  
-Having already produced part of the code for the Kalman agent, I will be spending the next few days working through concepts and explanations which have already been programmed, but I will be documenting my reflections from the videos to further my understanding and improve the code where possible.
-
 ## Introduction to the Kalman Filter.
 * A Kalman Filter is a recursive mathematical process, executed iteratively.
 * The purpose of the Kalman Filter is to quickly estimate the true value of the object being measured, when the measured values contain noise (error, uncertainty).
@@ -116,3 +112,53 @@ The $B$ matrix is derived from another equation of motion, $s = ut + \frac{1}{2}
 $B = \begin{bmatrix} \frac{1}{2} \Delta t^2 \newline \Delta t \end{bmatrix}$
 
 If there are no control variables active, $u_k = [0]$, or if it is acceleration, then $u_k = [a]$
+
+## Transaction Cost Engine
+Currently, my Kalman Filter isn't taking into account any friction values which would be faced in a live market environment. Therefore, while many of the trades which it makes seem profitable, in reality are not, as the profit is weighed down by factors such as commission and spread.
+
+### Defining the Friction Values
+The first step to implementing the TCE is to define the friction values which play against my trades, reducing profit:
+* Commission - The fees charged by brokers to have my buy and sell orders made.
+* Bid-Ask Spread - The difference between the lowest bid and the highest ask prices.
+* Slippage - The amount which the market moves by while my order is being made.
+
+### Setting the Friction Values
+For the friction values, I will set them as realistic constants where I am unable to calculate them.
+
+For the Bid-Ask Spread, the data I have doesn't offer the bid and ask prices, and so, while backtesting, I will assume a constant value of £0.01 per share.
+
+The values I will use:
+* Commission - £0.005 per share.
+* Bid-Ask Spread - £0.01 per share.
+* Slippage - 0.05% of the total trade price.
+
+### The Logic
+#### Equation Logic
+After defining the friction values, I can now define the equation which calculates the cost of entering a trade.
+
+As the spread is the difference between the bid and ask price, the transaction cost will only cover half the spread, as the price shown is the middle of this range.
+
+$Transaction Cost = (Shares * Commission) + (Shares * \frac{Spread}{2}) + (Shares * sharePrice * Slippage/2)$
+
+Final equation:
+$$Transaction Cost = Shares * (Commission + \frac{Spread}{2} + sharePrice * Slippage)$$
+
+#### Profit Logic
+With this additional information, the expected value of all trades decreases, and some trades which may have seemed profitable, actually result in a loss. The Filter needs to be updated to account for this equation, keeping it in mind before making a trade.
+
+##### Triggering the Engine
+The equation must be triggered when my position changes, triggering once when entering or leaving a short or long position, and triggering twice when moving from a short position to a long position, or the other way around.
+
+To calculate when my position changes, and by how much, I will need to compare my current_position with a new previous_position variable.
+
+abs(current_position) + abs(previous_position)
+
+This statement covers the logic of how many times I will count the equation when my position changes.
+
+##### Calculating if a trade is profitable
+As mentioned before, some trades which my project might have initially seemed profitable are no longer profitable. Next, I need to add logic to my code to account for this, plus an additional safety buffer.
+
+$$ expectedVal > expectedCost * (2 + safetyBuffer)$$
+
+The above statement will decide if a trade can be viewed as profitable. I am multiplying the expected cost by 2, to account for both the entry and exit cost, including a safety buffer. I will run the program with a safetyBuffer of different sizes, and compare the profit over the backtest to decide on the optimal value for the size and level of stocks which I am handling.
+
